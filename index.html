@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Advanced Calculator</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #10131b;
+      color: #edf0f7;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      min-height: 100vh;
+      margin: 0;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      background:
+        radial-gradient(ellipse at top left, #222b46 0, transparent 38%),
+        #10131b;
+    }
+
+    .calculator {
+      width: min(100%, 440px);
+      padding: 20px;
+      border: 1px solid #30384c;
+      border-radius: 24px;
+      background: #191e2a;
+      box-shadow: 0 24px 70px #0008;
+    }
+
+    .topbar, .display, .history-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .topbar {
+      margin-bottom: 16px;
+      color: #9da8bf;
+      font-size: 13px;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    .mode {
+      border: 1px solid #3b4660;
+      border-radius: 999px;
+      padding: 6px 12px;
+      color: #b7c8ff;
+      background: #242c3e;
+      cursor: pointer;
+      font: inherit;
+    }
+
+    .screen {
+      min-height: 112px;
+      padding: 16px;
+      margin-bottom: 16px;
+      overflow: hidden;
+      border: 1px solid #2e374b;
+      border-radius: 16px;
+      background: #11151e;
+      text-align: right;
+    }
+
+    .expression {
+      min-height: 28px;
+      overflow-x: auto;
+      color: #aab4ca;
+      font-size: 17px;
+      white-space: nowrap;
+    }
+
+    .result {
+      min-height: 42px;
+      overflow-x: auto;
+      color: #f4f6fb;
+      font-size: clamp(26px, 8vw, 36px);
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    .keys {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 9px;
+    }
+
+    button.key {
+      min-height: 48px;
+      border: 1px solid #333c50;
+      border-radius: 12px;
+      background: #242b3a;
+      color: #e8ecf5;
+      cursor: pointer;
+      font: inherit;
+      font-size: 15px;
+      transition: background .15s, transform .08s;
+    }
+
+    button.key:hover { background: #30394c; }
+    button.key:active { transform: scale(.97); }
+
+    button.function { color: #b8c8ff; background: #222b40; }
+    button.operator { color: #ffd18b; background: #332c25; }
+    button.danger { color: #ff9a9a; background: #38252d; }
+    button.equals {
+      color: #10151e;
+      border-color: #9db5ff;
+      background: #9db5ff;
+      font-weight: 700;
+    }
+
+    .history {
+      margin-top: 18px;
+      border-top: 1px solid #30384c;
+      padding-top: 12px;
+    }
+
+    .history-header {
+      margin-bottom: 8px;
+      color: #9da8bf;
+      font-size: 13px;
+    }
+
+    .history-header button {
+      border: 0;
+      background: transparent;
+      color: #9db5ff;
+      cursor: pointer;
+      font: inherit;
+    }
+
+    .history-list {
+      display: grid;
+      gap: 6px;
+      max-height: 130px;
+      overflow-y: auto;
+    }
+
+    .history-item {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 7px 9px;
+      border: 0;
+      border-radius: 8px;
+      background: #202634;
+      color: #c5ccda;
+      cursor: pointer;
+      text-align: left;
+      font: inherit;
+      font-size: 12px;
+    }
+
+    .history-item span:last-child { color: #dce5ff; }
+
+    .ai-note {
+      margin-top: 14px;
+      text-align: center;
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #a7b5d6;
+      opacity: 0.9;
+    }
+
+    @media (max-width: 380px) {
+      .calculator { padding: 14px; }
+      .keys { gap: 7px; }
+      button.key { min-height: 44px; font-size: 14px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="calculator" aria-label="Advanced calculator">
+    <div class="topbar">
+      <span>Scientific calculator</span>
+      <button class="mode" id="angleMode" type="button" aria-label="Toggle angle mode">DEG</button>
+    </div>
+
+    <section class="screen" aria-live="polite">
+      <div class="expression" id="expressionDisplay">0</div>
+      <div class="result" id="resultDisplay">0</div>
+    </section>
+
+    <section class="keys" id="keys" aria-label="Calculator keys">
+      <button class="key function" data-action="memory-clear">MC</button>
+      <button class="key function" data-action="memory-recall">MR</button>
+      <button class="key function" data-action="memory-add">M+</button>
+      <button class="key function" data-action="memory-subtract">M−</button>
+      <button class="key danger" data-action="backspace">⌫</button>
+
+      <button class="key function" data-insert="sin(">sin</button>
+      <button class="key function" data-insert="cos(">cos</button>
+      <button class="key function" data-insert="tan(">tan</button>
+      <button class="key function" data-insert="^">xʸ</button>
+      <button class="key danger" data-action="clear">AC</button>
+
+      <button class="key function" data-insert="asin(">sin⁻¹</button>
+      <button class="key function" data-insert="acos(">cos⁻¹</button>
+      <button class="key function" data-insert="atan(">tan⁻¹</button>
+      <button class="key function" data-insert="sqrt(">√</button>
+      <button class="key function" data-insert="!">n!</button>
+
+      <button class="key function" data-insert="log(">log</button>
+      <button class="key function" data-insert="ln(">ln</button>
+      <button class="key function" data-insert="abs(">abs</button>
+      <button class="key function" data-insert="(">(</button>
+      <button class="key function" data-insert=")">)</button>
+
+      <button class="key function" data-insert="π">π</button>
+      <button class="key function" data-insert="e">e</button>
+      <button class="key function" data-insert="Ans">Ans</button>
+      <button class="key function" data-insert="%">%</button>
+      <button class="key operator" data-insert="÷">÷</button>
+
+      <button class="key" data-insert="7">7</button>
+      <button class="key" data-insert="8">8</button>
+      <button class="key" data-insert="9">9</button>
+      <button class="key operator" data-insert="×">×</button>
+      <button class="key operator" data-insert="−">−</button>
+
+      <button class="key" data-insert="4">4</button>
+      <button class="key" data-insert="5">5</button>
+      <button class="key" data-insert="6">6</button>
+      <button class="key operator" data-insert="+">+</button>
+      <button class="key equals" data-action="equals">=</button>
+
+      <button class="key" data-insert="1">1</button>
+      <button class="key" data-insert="2">2</button>
+      <button class="key" data-insert="3">3</button>
+      <button class="key" data-insert="0">0</button>
+      <button class="key" data-insert=".">.</button>
+    </section>
+
+    <section class="history">
+      <div class="history-header">
+        <span>History</span>
+        <button id="clearHistory" type="button">Clear</button>
+      </div>
+      <div class="history-list" id="historyList"></div>
+    </section>
+
+    <div class="ai-note">Made with AI</div>
+  </main>
+
+  <script>
+    const expressionDisplay = document.getElementById("expressionDisplay");
+    const resultDisplay = document.getElementById("resultDisplay");
+    const historyList = document.getElementById("historyList");
+    const angleModeButton = document.getElementById("angleMode");
+
+    let expression = "";
+    let angleMode = "DEG";
+    let answer = 0;
+    let memory = 0;
+    const history = [];
+
+    function tokenize(source) {
+      const tokens = [];
+      let index = 0;
+
+      while (index < source.length) {
+        const rest = source.slice(index);
+        if (/^\s/.test(rest)) {
+          index++;
+          continue;
+        }
+
+        const number = rest.match(/^(?:(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)/);
+        if (number) {
+          tokens.push({ type: "number", value: Number(number[0]) });
+          index += number[0].length;
+          continue;
+        }
+
+        const identifier = rest.match(/^[a-zA-Zπ]+/);
+        if (identifier) {
+          tokens.push({ type: "identifier", value: identifier[0] });
+          index += identifier[0].length;
+          continue;
+        }
+
+        const char = source[index];
+        const normalized = ({ "×": "*", "÷": "/", "−": "-" })[char] || char;
+        if ("+-*/^()%!,".includes(normalized)) {
+          tokens.push({ type: normalized, value: normalized });
+          index++;
+          continue;
+        }
+
+        throw new Error(`Unexpected character: ${char}`);
+      }
+
+      return tokens;
+    }
+
+    class Parser {
+      constructor(tokens) {
+        this.tokens = tokens;
+        this.position = 0;
+      }
+
+      peek(type) {
+        return this.tokens[this.position]?.type === type;
+      }
+
+      take(type) {
+        if (!this.peek(type)) throw new Error("Invalid expression");
+        return this.tokens[this.position++];
+      }
+
+      parse() {
+        if (!this.tokens.length) return 0;
+        const value = this.addSub();
+        if (this.position !== this.tokens.length) throw new Error("Invalid expression");
+        if (!Number.isFinite(value)) throw new Error("Result is not finite");
+        return value;
+      }
+
+      addSub() {
+        let value = this.mulDiv();
+        while (this.peek("+") || this.peek("-")) {
+          const operator = this.tokens[this.position++].type;
+          const right = this.mulDiv();
+          value = operator === "+" ? value + right : value - right;
+        }
+        return value;
+      }
+
+      mulDiv() {
+        let value = this.unary();
+        while (this.peek("*") || this.peek("/")) {
+          const operator = this.tokens[this.position++].type;
+          const right = this.unary();
+          if (operator === "/" && right === 0) throw new Error("Cannot divide by zero");
+          value = operator === "*" ? value * right : value / right;
+        }
+        return value;
+      }
+
+      unary() {
+        if (this.peek("+")) {
+          this.position++;
+          return this.unary();
+        }
+        if (this.peek("-")) {
+          this.position++;
+          return -this.unary();
+        }
+        return this.power();
+      }
+
+      power() {
+        const base = this.postfix();
+        if (this.peek("^")) {
+          this.position++;
+          return Math.pow(base, this.unary());
+        }
+        return base;
+      }
+
+      postfix() {
+        let value = this.primary();
+        while (this.peek("!") || this.peek("%")) {
+          const operator = this.tokens[this.position++].type;
+          value = operator === "!" ? factorial(value) : value / 100;
+        }
+        return value;
+      }
+
+      primary() {
+        if (this.peek("number")) return this.tokens[this.position++].value;
+
+        if (this.peek("(")) {
+          this.position++;
+          const value = this.addSub();
+          this.take(")");
+          return value;
+        }
+
+        if (this.peek("identifier")) {
+          const name = this.tokens[this.position++].value;
+          if (this.peek("(")) {
+            this.position++;
+            const args = [];
+            if (!this.peek(")")) {
+              args.push(this.addSub());
+              while (this.peek(",")) {
+                this.position++;
+                args.push(this.addSub());
+              }
+            }
+            this.take(")");
+            return callFunction(name, args);
+          }
+          return constant(name);
+        }
+
+        throw new Error("Expected a number or expression");
+      }
+    }
+
+    function factorial(value) {
+      if (!Number.isInteger(value) || value < 0 || value > 170) {
+        throw new Error("Factorial requires an integer from 0 to 170");
+      }
+      let result = 1;
+      for (let i = 2; i <= value; i++) result *= i;
+      return result;
+    }
+
+    function constant(name) {
+      switch (name.toLowerCase()) {
+        case "π": case "pi": return Math.PI;
+        case "e": return Math.E;
+        case "ans": return answer;
+        default: throw new Error(`Unknown value: ${name}`);
+      }
+    }
+
+    function callFunction(name, args) {
+      const fn = name.toLowerCase();
+      if (args.length !== 1 && !["min", "max", "pow"].includes(fn)) {
+        throw new Error(`${name} requires one argument`);
+      }
+
+      const x = args[0];
+      const toRadians = value => angleMode === "DEG" ? value * Math.PI / 180 : value;
+      const fromRadians = value => angleMode === "DEG" ? value * 180 / Math.PI : value;
+
+      switch (fn) {
+        case "sin": return Math.sin(toRadians(x));
+        case "cos": return Math.cos(toRadians(x));
+        case "tan": return Math.tan(toRadians(x));
+        case "asin": return fromRadians(Math.asin(x));
+        case "acos": return fromRadians(Math.acos(x));
+        case "atan": return fromRadians(Math.atan(x));
+        case "sqrt": return Math.sqrt(x);
+        case "cbrt": return Math.cbrt(x);
+        case "ln": return Math.log(x);
+        case "log": return Math.log10(x);
+        case "abs": return Math.abs(x);
+        case "exp": return Math.exp(x);
+        case "min": return Math.min(...args);
+        case "max": return Math.max(...args);
+        case "pow":
+          if (args.length !== 2) throw new Error("pow requires two arguments");
+          return Math.pow(args[0], args[1]);
+        default: throw new Error(`Unknown function: ${name}`);
+      }
+    }
+
+    function evaluate(source) {
+      return new Parser(tokenize(source)).parse();
+    }
+
+    function format(value) {
+      if (!Number.isFinite(value)) return "Error";
+      return Number(value.toPrecision(12)).toString();
+    }
+
+    function render() {
+      expressionDisplay.textContent = expression || "0";
+      if (!expression) {
+        resultDisplay.textContent = format(answer);
+        return;
+      }
+
+      try {
+        resultDisplay.textContent = format(evaluate(expression));
+      } catch {
+        resultDisplay.textContent = "…";
+      }
+    }
+
+    function insert(value) {
+      expression += value;
+      render();
+    }
+
+    function calculate() {
+      if (!expression) return;
+      try {
+        const value = evaluate(expression);
+        answer = value;
+        history.unshift({ expression, result: format(value) });
+        history.splice(12);
+        renderHistory();
+        expression = format(value);
+        render();
+      } catch (error) {
+        resultDisplay.textContent = error.message || "Error";
+      }
+    }
+
+    function renderHistory() {
+      historyList.replaceChildren();
+      for (const item of history) {
+        const button = document.createElement("button");
+        button.className = "history-item";
+        button.type = "button";
+
+        const source = document.createElement("span");
+        source.textContent = item.expression;
+        const result = document.createElement("span");
+        result.textContent = item.result;
+
+        button.append(source, result);
+        button.addEventListener("click", () => {
+          expression = item.result;
+          render();
+        });
+        historyList.append(button);
+      }
+    }
+
+    document.getElementById("keys").addEventListener("click", event => {
+      const button = event.target.closest("button");
+      if (!button) return;
+
+      if (button.dataset.insert !== undefined) {
+        insert(button.dataset.insert);
+        return;
+      }
+
+      switch (button.dataset.action) {
+        case "clear":
+          expression = "";
+          render();
+          break;
+        case "backspace":
+          expression = expression.slice(0, -1);
+          render();
+          break;
+        case "equals":
+          calculate();
+          break;
+        case "memory-clear":
+          memory = 0;
+          break;
+        case "memory-recall":
+          insert(format(memory));
+          break;
+        case "memory-add":
+        case "memory-subtract":
+          try {
+            const value = expression ? evaluate(expression) : answer;
+            memory += button.dataset.action === "memory-add" ? value : -value;
+          } catch {
+            resultDisplay.textContent = "Invalid expression";
+          }
+          break;
+      }
+    });
+
+    angleModeButton.addEventListener("click", () => {
+      angleMode = angleMode === "DEG" ? "RAD" : "DEG";
+      angleModeButton.textContent = angleMode;
+      render();
+    });
+
+    document.getElementById("clearHistory").addEventListener("click", () => {
+      history.length = 0;
+      renderHistory();
+    });
+
+    document.addEventListener("keydown", event => {
+      if (/^[0-9.]$/.test(event.key)) insert(event.key);
+      else if (event.key === "+") insert("+");
+      else if (event.key === "-") insert("−");
+      else if (event.key === "*") insert("×");
+      else if (event.key === "/") {
+        event.preventDefault();
+        insert("÷");
+      } else if (event.key === "^" || event.key === "(" || event.key === ")" || event.key === "%") {
+        insert(event.key);
+      } else if (event.key === "Enter" || event.key === "=") {
+        event.preventDefault();
+        calculate();
+      } else if (event.key === "Backspace") {
+        expression = expression.slice(0, -1);
+        render();
+      } else if (event.key === "Escape") {
+        expression = "";
+        render();
+      }
+    });
+
+    render();
+  </script>
+</body>
+</html>
