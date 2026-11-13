@@ -129,7 +129,8 @@
       font-size: 13px;
     }
 
-    .history-header button {
+    .history-header button,
+    .cookie-settings {
       border: 0;
       background: transparent;
       color: #9db5ff;
@@ -169,6 +170,48 @@
       text-transform: uppercase;
       color: #a7b5d6;
       opacity: 0.9;
+    }
+
+    .cookie-settings {
+      display: block;
+      margin: 8px auto 0;
+      font-size: 12px;
+    }
+
+    .cookie-banner {
+      position: fixed;
+      z-index: 10;
+      right: 16px;
+      bottom: 16px;
+      left: 16px;
+      width: min(560px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 18px;
+      border: 1px solid #46516b;
+      border-radius: 16px;
+      background: #202737;
+      box-shadow: 0 16px 48px #0009;
+    }
+
+    .cookie-banner[hidden] { display: none; }
+    .cookie-banner h2 { margin: 0 0 8px; font-size: 17px; }
+    .cookie-banner p { margin: 0; color: #c1c9d9; font-size: 14px; line-height: 1.5; }
+    .cookie-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+    .cookie-actions button {
+      padding: 9px 13px;
+      border: 1px solid #53617f;
+      border-radius: 9px;
+      background: #2a3448;
+      color: #edf0f7;
+      cursor: pointer;
+      font: inherit;
+      font-size: 13px;
+    }
+    .cookie-actions .accept-cookies {
+      border-color: #9db5ff;
+      background: #9db5ff;
+      color: #10151e;
+      font-weight: 700;
     }
 
     @media (max-width: 380px) {
@@ -249,19 +292,90 @@
     </section>
 
     <div class="ai-note">Made with AI</div>
+    <button class="cookie-settings" id="cookieSettings" type="button">Cookie settings</button>
   </main>
+
+  <aside class="cookie-banner" id="cookieBanner" role="region" aria-labelledby="cookieTitle" hidden>
+    <h2 id="cookieTitle">Save your calculation history?</h2>
+    <p>This calculator can use a small cookie to save your recent calculations on this device. Choose “Allow history cookies” to keep history between visits, or “Not now” to use history only until you leave. No analytics or advertising cookies are used.</p>
+    <div class="cookie-actions">
+      <button class="accept-cookies" id="acceptCookies" type="button">Allow history cookies</button>
+      <button id="declineCookies" type="button">Not now</button>
+    </div>
+  </aside>
 
   <script>
     const expressionDisplay = document.getElementById("expressionDisplay");
     const resultDisplay = document.getElementById("resultDisplay");
     const historyList = document.getElementById("historyList");
     const angleModeButton = document.getElementById("angleMode");
+    const cookieBanner = document.getElementById("cookieBanner");
+    const HISTORY_COOKIE = "advancedCalculatorHistory";
+    const CONSENT_COOKIE = "advancedCalculatorCookieChoice";
 
     let expression = "";
     let angleMode = "DEG";
     let answer = 0;
     let memory = 0;
+    let cookieConsent = getCookie(CONSENT_COOKIE);
     const history = [];
+
+    function getCookie(name) {
+      const prefix = `${name}=`;
+      const item = document.cookie.split(";").map(part => part.trim()).find(part => part.startsWith(prefix));
+      if (!item) return null;
+      try {
+        return decodeURIComponent(item.slice(prefix.length));
+      } catch {
+        return null;
+      }
+    }
+
+    function setCookie(name, value, days = 180) {
+      const secure = location.protocol === "https:" ? "; Secure" : "";
+      document.cookie = `${name}=${encodeURIComponent(value)}; max-age=${days * 24 * 60 * 60}; path=/; SameSite=Lax${secure}`;
+    }
+
+    function removeCookie(name) {
+      const secure = location.protocol === "https:" ? "; Secure" : "";
+      document.cookie = `${name}=; max-age=0; path=/; SameSite=Lax${secure}`;
+    }
+
+    function saveHistory() {
+      if (cookieConsent !== "accepted") return;
+      try {
+        setCookie(HISTORY_COOKIE, JSON.stringify(history));
+      } catch {
+        // If cookies are unavailable or full, the calculator still works for this visit.
+      }
+    }
+
+    function loadHistory() {
+      const saved = getCookie(HISTORY_COOKIE);
+      if (!saved) return;
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          history.push(...parsed.filter(item =>
+            item && typeof item.expression === "string" && typeof item.result === "string"
+          ).slice(0, 12));
+        }
+      } catch {
+        removeCookie(HISTORY_COOKIE);
+      }
+    }
+
+    function openCookieBanner() {
+      cookieBanner.hidden = false;
+      document.getElementById("acceptCookies").focus();
+    }
+
+    if (cookieConsent === "accepted") {
+      loadHistory();
+      renderHistory();
+    } else if (cookieConsent !== "declined") {
+      openCookieBanner();
+    }
 
     function tokenize(source) {
       const tokens = [];
@@ -494,6 +608,7 @@
         history.unshift({ expression, result: format(value) });
         history.splice(12);
         renderHistory();
+        saveHistory();
         expression = format(value);
         render();
       } catch (error) {
@@ -570,6 +685,25 @@
     document.getElementById("clearHistory").addEventListener("click", () => {
       history.length = 0;
       renderHistory();
+      saveHistory();
+    });
+
+    document.getElementById("cookieSettings").addEventListener("click", openCookieBanner);
+
+    document.getElementById("acceptCookies").addEventListener("click", () => {
+      cookieConsent = "accepted";
+      setCookie(CONSENT_COOKIE, cookieConsent);
+      loadHistory();
+      renderHistory();
+      saveHistory();
+      cookieBanner.hidden = true;
+    });
+
+    document.getElementById("declineCookies").addEventListener("click", () => {
+      cookieConsent = "declined";
+      setCookie(CONSENT_COOKIE, cookieConsent);
+      removeCookie(HISTORY_COOKIE);
+      cookieBanner.hidden = true;
     });
 
     document.addEventListener("keydown", event => {
